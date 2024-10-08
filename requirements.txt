@@ -1,0 +1,9 @@
+future==1.0.0
+iso8601==2.1.0
+mpu6050-raspberrypi==1.2
+pyserial==3.5
+pyusb==1.2.1
+PyYAML==6.0.2
+serial==0.0.97
+smbus==1.1.post2
+usb==0.0.83.dev0
