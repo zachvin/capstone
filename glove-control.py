@@ -1,9 +1,11 @@
-#!/usr/bin/python3
+import sys
+sys.path.insert(1, './btferret')
 import serial
 import json
 import btfpy
 import numpy as np
 from mpu6050 import mpu6050
+
 
 # ********** Bluetooth mouse **********
 # From https://github.com/petzval/btferret
@@ -81,31 +83,39 @@ node = 0
 xydel = 8   # cursor step size
 
 ser = serial.Serial('/dev/ttyACM0', 9600, timeout=1)
+count = 0
 def read_from_serial():
-  global ser
+  global count
   if ser.in_waiting > 0:
       line = ser.readline().decode('utf-8').rstrip()
-      return json.loads(line)
+      count += 1
+      try:
+          return json.loads(line)
+      except:
+          print(f'Bad json data {count}')
+          count = 0
+          pass
   return None
 
 imu_baseline = {'x': 0, 'y': 0, 'z': 0}
 imu = mpu6050(0x68)
 def process_data(finger_data):
+  global imu_baseline
+  global imu
   thresh = 1000
   # calibrate IMU when hand is open
-  if all([finger_data[f] for f in finger_data.keys()]) > thresh or imu_baseline is None:
+  #if all([finger_data[f] for f in finger_data.keys()]) > thresh or imu_baseline is None:
+  if imu_baseline is None:
     imu_baseline = imu.get_gyro_data()
     return 0, 0
   
   # use IMU when hand is closed
-  elif all([finger_data[f] for f in finger_data.keys()]) < thresh:
-    imu_data = imu.get_gyro_data()
-    dx = int(imu_baseline['x'] - imu_data.x)
-    dy = int(imu_baseline['x'] - imu_data.y)
-    return dx, dy
-  
+  #elif all([finger_data[f] for f in finger_data.keys()]) < thresh:
   else:
-    return 0, 0
+    imu_data = imu.get_gyro_data()
+    dx = int(imu_baseline['x'] - imu_data['x'])
+    dy = int(imu_baseline['x'] - imu_data['y'])
+    return dx, dy
 
 
 def lecallback(clientnode,op,cticn):
@@ -118,7 +128,10 @@ def lecallback(clientnode,op,cticn):
     data = read_from_serial()
     dx,dy = 0,0
     if data:
+      print(data['finger1'])
       dx,dy = process_data(data)
+    else:
+      print('No data from flex sensor')
     
     send_key(dx,dy,0) # 0 constant since we won't use keyboard
 
