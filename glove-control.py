@@ -133,7 +133,11 @@ def lecallback(clientnode,op,cticn):
     else:
       print('No data from flex sensor')
     
-    send_key(dx,dy,0) # 0 constant since we won't use keyboard
+    try:
+      send_key(dx,dy,0) # 0 constant since we won't use keyboard
+    except:
+      print('Error in sending key')
+      return(btfpy.SERVER_CONTINUE)
 
   if(op == btfpy.LE_DISCONNECT):
     return(btfpy.SERVER_EXIT)
