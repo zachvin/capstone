@@ -87,9 +87,9 @@ count = 0
 def read_from_serial():
   global count
   if ser.in_waiting > 0:
-      line = ser.readline().decode('utf-8').rstrip()
       count += 1
       try:
+          line = ser.readline().decode('utf-8').rstrip()
           return json.loads(line)
       except:
           print(f'Bad json data {count}')
