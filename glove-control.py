@@ -97,7 +97,7 @@ def read_from_serial():
           pass
   return None
 
-imu_baseline = {'x': 0, 'y': 0, 'z': 0}
+imu_baseline = None
 imu = mpu6050(0x68)
 def process_data(finger_data):
   global imu_baseline
@@ -133,7 +133,6 @@ def lecallback(clientnode,op,cticn):
     data = read_from_serial()
     dx,dy = 0,0
     if data:
-      print(data['finger1'])
       dx,dy, but = process_data(data)
       dx, dy = old_dx + dx, old_dy + dy
       old_dx, old_dy = dx, dy
