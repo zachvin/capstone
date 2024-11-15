@@ -107,19 +107,24 @@ def process_data(finger_data):
   #if all([finger_data[f] for f in finger_data.keys()]) > thresh or imu_baseline is None:
   if imu_baseline is None:
     imu_baseline = imu.get_gyro_data()
-    return 0, 0
+    return 0, 0, 0
   
   # use IMU when hand is closed
   #elif all([finger_data[f] for f in finger_data.keys()]) < thresh:
   else:
+    if any([finger_data[f] for f in finger_data.keys()]) < thresh:
+      return 0, 0, 1
     imu_data = imu.get_gyro_data()
     dx = int(imu_baseline['x'] - imu_data['x'])
     dy = int(imu_baseline['x'] - imu_data['y'])
-    return dx, dy
+    return dx, dy, 0
 
-
+old_dx = 0
+old_dy = 0
 def lecallback(clientnode,op,cticn):
   global xydel
+  global old_dx
+  global old_dy
       
   if(op == btfpy.LE_CONNECT): 
     print("Connected OK. X stops server.")
@@ -129,12 +134,14 @@ def lecallback(clientnode,op,cticn):
     dx,dy = 0,0
     if data:
       print(data['finger1'])
-      dx,dy = process_data(data)
+      dx,dy, but = process_data(data)
+      dx, dy = old_dx + dx, old_dy + dy
+      old_dx, old_dy = dx, dy
     else:
       print('No data from flex sensor')
     
     try:
-      send_key(dx,dy,0) # 0 constant since we won't use keyboard
+      send_key(dx,dy,but)
     except:
       print('Error in sending key')
       return(btfpy.SERVER_CONTINUE)
