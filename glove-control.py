@@ -4,6 +4,7 @@ import serial
 import json
 import btfpy
 import numpy as np
+import time
 from mpu6050 import mpu6050
 
 
@@ -97,35 +98,60 @@ def read_from_serial():
           pass
   return None
 
-imu_baseline = None
 imu = mpu6050(0x68)
+
 def process_data(finger_data):
-  global imu_baseline
   global imu
   button = 0
-  thresh = 500
-  # calibrate IMU when hand is open
-  #if all([finger_data[f] for f in finger_data.keys()]) > thresh or imu_baseline is None:
-  if imu_baseline is None:
-    imu_baseline = imu.get_gyro_data()
+  closed_thresh = 580
+  thresh = 600
+  open_thresh = 620
+
+  # If hand is in a fist return no mouse movement or button
+  if finger_data.get('finger1') < thresh and \
+          finger_data.get('finger2') < thresh and \
+          finger_data.get('finger3') < thresh and \
+          finger_data.get('finger4') < thresh:
     return 0, 0, 0
-  
-  # use IMU when hand is closed
-  #elif all([finger_data[f] for f in finger_data.keys()]) < thresh:
+
   else:
-    if any([finger_data[f] < thresh for f in finger_data.keys()]):
-      button = 1
+    # get imu data
     imu_data = imu.get_gyro_data()
-    dx = int(imu_baseline['x'] - imu_data['x'])
-    dy = int(imu_baseline['x'] - imu_data['y'])
+    dx = -int(imu_data['x']) if abs(int(imu_data['x'])) > 5 else 0
+    dy = int(imu_data['y']) if abs(int(imu_data['y'])) > 5 else 0
+
+
+	# volume?
+    if finger_data.get('finger4') < thresh and finger_data.get('finger3') < thresh:
+        # 15 = f2 = volume down
+        # 16 = f3 = volume up
+        # tilt hand left and right to control volume
+        if dx > 0:
+            return 0,0,15
+        else:
+            return 0,0,16
+
+    # scroll
+    elif finger_data.get('finger4') > thresh and finger_data.get('finger3') > thresh and finger_data.get('finger2') < thresh and finger_data.get('finger1') < thresh:
+        # 6 = page up
+        # 7 = page down
+
+        return 0,0,6
+        if dy > 0:
+            return 0,0,6
+        else:
+            return 0,0,7
+			
+    # click
+    elif finger_data.get('finger4') < thresh:
+        print("CLICK")
+        return 0, 0, 1
+
     return dx, dy, button
 
-old_dx = 0
-old_dy = 0
+
 def lecallback(clientnode,op,cticn):
   global xydel
-  global old_dx
-  global old_dy
       
   if(op == btfpy.LE_CONNECT): 
     print("Connected OK. X stops server.")
@@ -134,8 +160,14 @@ def lecallback(clientnode,op,cticn):
     data = read_from_serial()
     dx,dy = 0,0
     if data:
-      print(data)
-      dx,dy, but = process_data(data)
+      #for key in data.keys():
+      #    print(data[key], end='\t')
+      #print()
+      if len(data.keys()) < 5:
+          print('Not all data received.')
+          return btfpy.SERVER_CONTINUE
+
+      dx, dy, but = process_data(data)
     else:
       print('No data from flex sensor')
     

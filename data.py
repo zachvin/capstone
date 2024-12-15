@@ -19,5 +19,9 @@ with open('reader.log', 'a') as f:
             print(f'Finger 4: {data["finger4"]}')
             print(f'Finger 5: {data["finger5"]}\n')
 
-        print(f'Accelerometer: {imu.get_accel_data()}')
-        print(f'Gyroscope: {imu.get_gyro_data()}')
+        #print(f'Accelerometer: {imu.get_accel_data()}')
+        data = imu.get_gyro_data()
+        x = data['x']
+        y = data['y']
+        z = data['z']
+        #print(f'x: {x:08.4f}\ty: {y:08.4f}\tz: {z:08.4f}')
