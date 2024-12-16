@@ -8,15 +8,16 @@ DEVICE=capstonepi-mouse TYPE=MESH  NODE=1  ADDRESS=B8:27:EB:A7:E0:C8
     LECHAR=Protocol Mode   SIZE=1  Permit=06  UUID=2A4E  
     LECHAR=HID Info        SIZE=4  Permit=02  UUID=2A4A  
     LECHAR=HID Ctl Point   SIZE=8  Permit=04  UUID=2A4C   
-    LECHAR=Report Map      SIZE=52 Permit=02  UUID=2A4B  
+    LECHAR=Report Map      SIZE=92 Permit=02  UUID=2A4B
     LECHAR=Report1         SIZE=3  Permit=92  UUID=2A4D  
         ; Report1 must have Report ID = 1 
         ;   0x85, 0x01 in Report Map
         ; unsigned char uuid[2]={0x2A,0x4D};
         ; index = find_ctic_index(localnode(),UUID_2,uuid);
-        ; Send data: write_ctic(localnode(),index,data,0);
-
-  
-
-
-
+        ; Send data: write_ctic(localnode(),index,data,0);   
+    LECHAR=Report2         SIZE=8  Permit=92  UUID=2A4D
+        ; Report2 must have Report ID = 2
+        ;   0x85, 0x02 in Report Map
+        ; unsigned char uuid[2]={0x2A,0x4D};
+        ; index = find_ctic_index(localnode(),UUID_2,uuid) + 1;
+        ; Send data: write_ctic(localnode(),index,data,0);  

@@ -68,11 +68,14 @@ from mpu6050 import mpu6050
 reportmap = [0x05,0x01,0x09,0x02,0xA1,0x01,0x85,0x01,0x09,0x01,0xA1,0x00,0x05,0x09,0x19,0x01,\
              0x29,0x03,0x15,0x00,0x25,0x01,0x95,0x03,0x75,0x01,0x81,0x02,0x95,0x01,0x75,0x05,\
              0x81,0x01,0x05,0x01,0x09,0x30,0x09,0x31,0x15,0x81,0x25,0x7F,0x75,0x08,0x95,0x02,\
-             0x81,0x06,0xC0,0xC0]
+             0x81,0x06,0x85,0x02,0x05,0x07,0x19,0xE0,0x29,0xE7,0x15,0x00,\
+             0x25,0x01,0x75,0x01,0x95,0x08,0x81,0x02,0x95,0x01,0x75,0x08,0x81,0x01,0x95,0x06,\
+             0x75,0x08,0x15,0x00,0x25,0x65,0x05,0x07,0x19,0x00,0x29,0x65,0x81,0x00,0xC0,0xC0]
 
    # NOTE the size of report (3 in this case) must appear in keyboard.txt as follows:
    #   LECHAR=Report1         SIZE=3  Permit=92  UUID=2A4D  
 report = [0,0,0]
+report2 = [0,0,0,0,0,0,0,0]
 
 name = "HID"
 appear = [0xC2,0x03]  # 03C2 = mouse icon appears on connecting device 
@@ -80,6 +83,7 @@ pnpinfo = [0x02,0x6B,0x1D,0x46,0x02,0x37,0x05]
 protocolmode = [0x01]
 hidinfo = [0x01,0x11,0x00,0x02]
 reportindex = -1
+reportindex2 = -1
 node = 0
 xydel = 8   # cursor step size
 
@@ -112,7 +116,7 @@ def process_data(finger_data):
           finger_data.get('finger2') < thresh and \
           finger_data.get('finger3') < thresh and \
           finger_data.get('finger4') < thresh:
-    return 0, 0, 0
+    return 0, 0, 0, 0, 1
 
   else:
     # get imu data
@@ -127,27 +131,27 @@ def process_data(finger_data):
         # 16 = f3 = volume up
         # tilt hand left and right to control volume
         if dx > 0:
-            return 0,0,15
+            return 0,0,0, 15, 2
         else:
-            return 0,0,16
+            return 0,0, 0, 16, 2
 
     # scroll
     elif finger_data.get('finger4') > thresh and finger_data.get('finger3') > thresh and finger_data.get('finger2') < thresh and finger_data.get('finger1') < thresh:
         # 6 = page up
         # 7 = page down
-
-        return 0,0,6
+        print("SCROLL")
+        return 0,0,0, 'a', 2
         if dy > 0:
-            return 0,0,6
+            return 0,0,0, 6, 2
         else:
-            return 0,0,7
+            return 0,0,0, 7, 2
 			
     # click
     elif finger_data.get('finger4') < thresh:
         print("CLICK")
-        return 0, 0, 1
+        return 0, 0, 1, 0, 1
 
-    return dx, dy, button
+    return dx, dy, button, 0, 1
 
 
 def lecallback(clientnode,op,cticn):
@@ -159,23 +163,31 @@ def lecallback(clientnode,op,cticn):
   if(op == btfpy.LE_TIMER):
     data = read_from_serial()
     dx,dy = 0,0
+    mode = 0
+    key = 0
     if data:
-      #for key in data.keys():
-      #    print(data[key], end='\t')
-      #print()
+      for key in data.keys():
+          print(data[key], end='\t')
+      print()
       if len(data.keys()) < 5:
           print('Not all data received.')
           return btfpy.SERVER_CONTINUE
 
-      dx, dy, but = process_data(data)
+      dx, dy, but, key, mode = process_data(data)
     else:
       print('No data from flex sensor')
-    
-    try:
-      send_key(dx,dy,but)
-    except:
-      print('Error in sending key')
-      return(btfpy.SERVER_CONTINUE)
+    if mode == 1:
+      try:
+        send_key_mouse(dx,dy,but)
+      except:
+        print('Error in sending mouse')
+        return(btfpy.SERVER_CONTINUE)
+    else:
+      try:
+        send_key_keyboard(key)
+      except:
+        print('Error in sending keyboard')
+        return(btfpy.SERVER_CONTINUE)
 
   if(op == btfpy.LE_DISCONNECT):
     return(btfpy.SERVER_EXIT)
@@ -183,7 +195,7 @@ def lecallback(clientnode,op,cticn):
 
 #*********** SEND KEY *****************
 
-def send_key(x,y,but):
+def send_key_mouse(x,y,but):
   global reportindex
   global node
 
@@ -205,6 +217,25 @@ def send_key(x,y,but):
     btfpy.Write_ctic(node,reportindex,[0,0,0],0) 
   return
 
+def send_key_keyboard(key):
+  global reportindex2
+  global node
+
+  hidcode = btfpy.Hid_key_code(key)
+  if(hidcode == 0):
+    return
+
+  buf = [0,0,0,0,0,0,0,0] 
+        
+  # send key press to Report1
+  buf[0] = (hidcode >> 8) & 0xFF  # modifier
+  buf[2] = hidcode & 0xFF         # key code
+  btfpy.Write_ctic(node,reportindex2,buf,0)
+  # send no key pressed - all zero
+  buf[0] = 0
+  buf[2] = 0
+  btfpy.Write_ctic(node,reportindex2,buf,0) 
+  return
 
 ############ START ###########
    
@@ -220,6 +251,8 @@ node = btfpy.Localnode()
 # look up Report1 index
 uuid = [0x2A,0x4D]
 reportindex = btfpy.Find_ctic_index(node,btfpy.UUID_2,uuid)
+reportindex2 = btfpy.Find_ctic_index(node,btfpy.UUID_2,uuid) + 1
+
 if(reportindex < 0):
   print("Failed to find Report characteristic")
   exit(0)
@@ -242,6 +275,9 @@ btfpy.Write_ctic(node,btfpy.Find_ctic_index(node,btfpy.UUID_2,uuid),reportmap,0)
 
 uuid = [0x2A,0x4D]
 btfpy.Write_ctic(node,btfpy.Find_ctic_index(node,btfpy.UUID_2,uuid),report,0)
+
+uuid = [0x2A,0x4D]
+btfpy.Write_ctic(node,btfpy.Find_ctic_index(node,btfpy.UUID_2,uuid) + 1,report2,0)
 
 uuid = [0x2A,0x50]
 btfpy.Write_ctic(node,btfpy.Find_ctic_index(node,btfpy.UUID_2,uuid),pnpinfo,0)
